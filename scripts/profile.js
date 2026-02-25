@@ -1,89 +1,67 @@
 /* ---------------------------------------------------
-   PROFILE.JS — Load + Edit Profile
+   PROFILE.JS — Load, render, edit, update profile
 --------------------------------------------------- */
 
-document.addEventListener("DOMContentLoaded", async () => {
-    requireAuth();
+requireAuth();
+const user = getCurrentUser();
 
-    const user = getCurrentUser();
-    if (!user || !user.id) {
-        console.error("No logged-in user found.");
-        return;
-    }
+/* ---------------------------------------------------
+   INITIAL LOAD
+--------------------------------------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+    loadProfile();
+    setupProfileImagePicker();
+});
 
-    const profileContainer = document.getElementById("profileInfo");
-    const form = document.getElementById("editProfileForm");
+/* ---------------------------------------------------
+   LOAD PROFILE FROM BACKEND
+--------------------------------------------------- */
+async function loadProfile() {
+    const container = document.getElementById("profileInfo");
 
-    if (!profileContainer) {
-        console.error("profileInfo container missing in DOM.");
-        return;
-    }
-    if (!form) {
-        console.error("editProfileForm missing in DOM.");
-        return;
-    }
+    if (!container) return;
 
-    // Load profile
+    container.innerHTML = `<div class="empty-state">Loading profile…</div>`;
+
     const result = await api("getProfile", { userId: user.id });
 
     if (result.error) {
-        profileContainer.innerHTML = "Error loading profile.";
+        container.innerHTML = `<div class="empty-state">Error loading profile.</div>`;
         return;
     }
 
     const { user: userData, profile } = result;
 
-    // Render profile card
-    renderProfile(userData, profile, profileContainer);
-
-    // Fill edit form
+    renderProfile(userData, profile);
     fillEditForm(profile);
-
-    /* ---------------------------------------------------
-       HANDLE PROFILE UPDATE
-    --------------------------------------------------- */
-    form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const bio = document.getElementById("bio")?.value.trim() || "";
-        const location = document.getElementById("location")?.value.trim() || "";
-        const phone = document.getElementById("phone")?.value.trim() || "";
-
-        const updateResult = await api("updateProfile", {
-            userId: user.id,
-            bio,
-            location,
-            phone
-        });
-
-        if (updateResult.error) {
-            alert(updateResult.error);
-            return;
-        }
-
-        alert("Profile updated successfully!");
-
-        // Re-render profile card with updated data
-        renderProfile(userData, updateResult.profile, profileContainer);
-    });
-});
+}
 
 /* ---------------------------------------------------
    RENDER PROFILE CARD
 --------------------------------------------------- */
-function renderProfile(user, profile, container) {
+function renderProfile(userData, profile) {
+    const container = document.getElementById("profileInfo");
     if (!container) return;
+
+    const avatar = userData.avatarUrl
+        ? `data:image/jpeg;base64,${userData.avatarUrl}`
+        : "images/default-avatar.png";
 
     container.innerHTML = `
         <div class="profile-card">
+
+            <div class="profile-avatar-wrapper">
+                <img id="profileAvatar" class="profile-avatar" src="${avatar}">
+            </div>
+
             <div class="profile-row">
                 <label>Name:</label>
-                <span>${user.fullName || ""}</span>
+                <span>${userData.fullName || ""}</span>
             </div>
 
             <div class="profile-row">
                 <label>Email:</label>
-                <span>${user.email || ""}</span>
+                <span>${userData.email || ""}</span>
             </div>
 
             <div class="profile-row">
@@ -100,21 +78,95 @@ function renderProfile(user, profile, container) {
                 <label>Phone:</label>
                 <span>${profile.phone || ""}</span>
             </div>
+
         </div>
     `;
 }
 
 /* ---------------------------------------------------
-   FILL EDIT FORM WITH EXISTING DATA
+   FILL EDIT FORM
 --------------------------------------------------- */
 function fillEditForm(profile) {
-    if (!profile) return;
+    document.getElementById("bio").value = profile.bio || "";
+    document.getElementById("location").value = profile.location || "";
+    document.getElementById("phone").value = profile.phone || "";
+}
 
-    const bioEl = document.getElementById("bio");
-    const locationEl = document.getElementById("location");
-    const phoneEl = document.getElementById("phone");
+/* ---------------------------------------------------
+   PROFILE IMAGE PICKER
+--------------------------------------------------- */
+function setupProfileImagePicker() {
+    const picker = document.getElementById("profileImagePicker");
+    const input = document.getElementById("profileImageInput");
 
-    if (bioEl) bioEl.value = profile.bio || "";
-    if (locationEl) locationEl.value = profile.location || "";
-    if (phoneEl) phoneEl.value = profile.phone || "";
+    if (!picker || !input) return;
+
+    picker.onclick = () => input.click();
+
+    input.onchange = () => {
+        if (input.files.length > 0) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                document.getElementById("profileAvatarPreview").src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+}
+
+/* ---------------------------------------------------
+   SAVE PROFILE
+--------------------------------------------------- */
+async function saveProfile() {
+    const bio = document.getElementById("bio").value.trim();
+    const location = document.getElementById("location").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const imageInput = document.getElementById("profileImageInput");
+
+    let base64Image = "";
+    if (imageInput.files.length > 0) {
+        base64Image = await fileToBase64(imageInput.files[0]);
+    }
+
+    const result = await api("updateProfile", {
+        userId: user.id,
+        bio,
+        location,
+        phone,
+        avatar: base64Image
+    });
+
+    if (result.error) {
+        showMessage("Error", result.error);
+        return;
+    }
+
+    showMessage("Success", "Profile updated successfully.");
+    loadProfile();
+}
+
+/* ---------------------------------------------------
+   FILE → BASE64
+--------------------------------------------------- */
+function fileToBase64(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.readAsDataURL(file);
+    });
+}
+
+/* ---------------------------------------------------
+   UNIVERSAL POPUP
+--------------------------------------------------- */
+function showMessage(title, text) {
+    const backdrop = document.getElementById("messageBackdrop");
+    document.getElementById("messageTitle").textContent = title;
+    document.getElementById("messageText").textContent = text;
+    backdrop.style.display = "flex";
+}
+
+function hideMessagePopup() {
+    document.getElementById("messageBackdrop").style.display = "none";
 }
