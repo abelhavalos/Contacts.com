@@ -1,61 +1,84 @@
 /* ---------------------------------------------------
-   AUTH.JS — Signup, Login, Session
+   AUTH.JS — Signup, Login, Session (Contacts.com)
 --------------------------------------------------- */
 
-document.addEventListener("DOMContentLoaded", () => {
-    const signupForm = document.getElementById("signupForm");
-    const loginForm = document.getElementById("loginForm");
+/* 
+   IMPORTANT:
+   Your new login.html and signup.html do NOT use <form> tags.
+   They use buttons with onclick="loginUser()" and onclick="signupUser()".
+   So we remove all form listeners and expose two functions instead.
+*/
 
-    /* SIGNUP */
-    if (signupForm) {
-        signupForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
+/* ---------------------------------------------------
+   SIGNUP
+--------------------------------------------------- */
+async function signupUser() {
+    const fullName = document.getElementById("fullName").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
 
-            const fullName = document.getElementById("fullName").value.trim();
-            const email = document.getElementById("email").value.trim();
-
-            const result = await api("signup", { fullName, email });
-
-            if (result.error) {
-                alert(result.error);
-                return;
-            }
-
-            saveUserSession(result.user);
-            window.location.href = "dashboard.html";
-        });
+    if (!fullName || !email || !password) {
+        showPopup("Missing Fields", "Please fill out all fields.");
+        return;
     }
 
-    /* LOGIN */
-    if (loginForm) {
-        loginForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
+    // Show loader
+    const loader = document.getElementById("signupLoader");
+    if (loader) loader.style.display = "flex";
 
-            const email = document.getElementById("email").value.trim();
+    const result = await api("signup", { fullName, email, password });
 
-            const result = await api("login", { email });
+    if (loader) loader.style.display = "none";
 
-            if (result.error) {
-                alert(result.error);
-                return;
-            }
-
-            saveUserSession(result.user);
-            window.location.href = "dashboard.html";
-        });
+    if (result.error) {
+        showPopup("Signup Failed", result.error);
+        return;
     }
-});
+
+    saveUserSession(result.user);
+    window.location.href = "dashboard.html";
+}
+
+/* ---------------------------------------------------
+   LOGIN
+--------------------------------------------------- */
+async function loginUser() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+
+    if (!email || !password) {
+        showPopup("Missing Fields", "Please enter your email and password.");
+        return;
+    }
+
+    // Show loader
+    const loader = document.getElementById("loginLoader");
+    if (loader) loader.style.display = "flex";
+
+    const result = await api("login", { email, password });
+
+    if (loader) loader.style.display = "none";
+
+    if (result.error) {
+        showPopup("Login Failed", result.error);
+        return;
+    }
+
+    saveUserSession(result.user);
+    window.location.href = "dashboard.html";
+}
 
 /* ---------------------------------------------------
    SESSION HELPERS
 --------------------------------------------------- */
 function saveUserSession(user) {
-    localStorage.setItem("contacts_user", JSON.stringify(user));
+    localStorage.setItem("contact_user", JSON.stringify(user));
 }
 
 function getCurrentUser() {
-    const raw = localStorage.getItem("contacts_user");
+    const raw = localStorage.getItem("contact_user");
     if (!raw) return null;
+
     try {
         return JSON.parse(raw);
     } catch {
@@ -70,7 +93,33 @@ function requireAuth() {
     }
 }
 
+/* ---------------------------------------------------
+   LOGOUT
+--------------------------------------------------- */
 function logout() {
-    localStorage.removeItem("contacts_user");
+    localStorage.removeItem("contact_user");
     window.location.href = "login.html";
+}
+
+/* ---------------------------------------------------
+   POPUP HELPERS (used by login/signup)
+--------------------------------------------------- */
+function showPopup(title, message) {
+    const backdrop = document.getElementById("popupBackdrop");
+    const titleEl = document.getElementById("popupTitle");
+    const msgEl = document.getElementById("popupMessage");
+
+    if (!backdrop) {
+        alert(message);
+        return;
+    }
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    backdrop.style.display = "flex";
+}
+
+function hidePopup() {
+    const backdrop = document.getElementById("popupBackdrop");
+    if (backdrop) backdrop.style.display = "none";
 }
