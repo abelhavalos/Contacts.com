@@ -43,8 +43,8 @@ function renderProfile(userData, profile) {
     const container = document.getElementById("profileInfo");
     if (!container) return;
 
-    const avatar = userData.avatarUrl
-        ? `data:image/jpeg;base64,${userData.avatarUrl}`
+    const avatar = profile.avatar
+        ? `data:image/jpeg;base64,${profile.avatar}`
         : "images/default-avatar.png";
 
     container.innerHTML = `
@@ -90,6 +90,15 @@ function fillEditForm(profile) {
     document.getElementById("bio").value = profile.bio || "";
     document.getElementById("location").value = profile.location || "";
     document.getElementById("phone").value = profile.phone || "";
+
+    // Load existing avatar into preview
+    const preview = document.getElementById("profileImagePreview");
+    preview.src = profile.avatar
+        ? `data:image/jpeg;base64,${profile.avatar}`
+        : "images/default-avatar.png";
+
+    // Store original avatar so we don't overwrite it
+    window.originalAvatar = profile.avatar || "";
 }
 
 /* ---------------------------------------------------
@@ -108,7 +117,7 @@ function setupProfileImagePicker() {
             const file = input.files[0];
             const reader = new FileReader();
             reader.onload = () => {
-                document.getElementById("profileAvatarPreview").src = reader.result;
+                document.getElementById("profileImagePreview").src = reader.result;
             };
             reader.readAsDataURL(file);
         }
@@ -124,7 +133,9 @@ async function saveProfile() {
     const phone = document.getElementById("phone").value.trim();
     const imageInput = document.getElementById("profileImageInput");
 
-    let base64Image = "";
+    let base64Image = window.originalAvatar; // keep existing avatar
+
+    // Only update avatar if user selected a new file
     if (imageInput.files.length > 0) {
         base64Image = await fileToBase64(imageInput.files[0]);
     }
