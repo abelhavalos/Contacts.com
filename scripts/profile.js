@@ -1,126 +1,101 @@
 /* ---------------------------------------------------
-   PROFILE.JS — Load, render, edit, update profile
+   PROFILE.JS — Contacts.com Profile System
 --------------------------------------------------- */
 
 requireAuth();
 const user = getCurrentUser();
+
+let originalAvatar = ""; // stored so we don't overwrite avatar accidentally
 
 /* ---------------------------------------------------
    INITIAL LOAD
 --------------------------------------------------- */
 document.addEventListener("DOMContentLoaded", () => {
     loadProfile();
-    setupProfileImagePicker();
+    setupAvatarPicker();
 });
 
 /* ---------------------------------------------------
-   LOAD PROFILE FROM BACKEND
+   LOAD PROFILE
 --------------------------------------------------- */
 async function loadProfile() {
-    const container = document.getElementById("profileInfo");
+    showLoader(true);
 
-    if (!container) return;
+    const res = await api("getProfile", { userId: user.id });
 
-    container.innerHTML = `<div class="empty-state">Loading profile…</div>`;
+    showLoader(false);
 
-    const result = await api("getProfile", { userId: user.id });
-
-    if (result.error) {
-        container.innerHTML = `<div class="empty-state">Error loading profile.</div>`;
+    if (res.error) {
+        showPopup("Error", res.error);
         return;
     }
 
-    const { user: userData, profile } = result;
+    const { user: userData, profile } = res;
 
-    renderProfile(userData, profile);
-    fillEditForm(profile);
-}
+    // Fill header
+    document.getElementById("fullNameDisplay").textContent = userData.fullName || "";
+    document.getElementById("locationDisplay").textContent = profile.location || "City, State";
 
-/* ---------------------------------------------------
-   RENDER PROFILE CARD
---------------------------------------------------- */
-function renderProfile(userData, profile) {
-    const container = document.getElementById("profileInfo");
-    if (!container) return;
-
+    // Avatar
     const avatar = profile.avatar
         ? `data:image/jpeg;base64,${profile.avatar}`
         : "images/default-avatar.png";
 
-    container.innerHTML = `
-        <div class="profile-card">
+    document.getElementById("profilePicPreview").src = avatar;
+    originalAvatar = profile.avatar || "";
 
-            <div class="profile-avatar-wrapper">
-                <img id="profileAvatar" class="profile-avatar" src="${avatar}">
-            </div>
-
-            <div class="profile-row">
-                <label>Name:</label>
-                <span>${userData.fullName || ""}</span>
-            </div>
-
-            <div class="profile-row">
-                <label>Email:</label>
-                <span>${userData.email || ""}</span>
-            </div>
-
-            <div class="profile-row">
-                <label>Bio:</label>
-                <span>${profile.bio || ""}</span>
-            </div>
-
-            <div class="profile-row">
-                <label>Location:</label>
-                <span>${profile.location || ""}</span>
-            </div>
-
-            <div class="profile-row">
-                <label>Phone:</label>
-                <span>${profile.phone || ""}</span>
-            </div>
-
-        </div>
-    `;
-}
-
-/* ---------------------------------------------------
-   FILL EDIT FORM
---------------------------------------------------- */
-function fillEditForm(profile) {
-    document.getElementById("bio").value = profile.bio || "";
+    // Fill editable fields
+    document.getElementById("about").value = profile.bio || "";
     document.getElementById("location").value = profile.location || "";
+    document.getElementById("email").value = userData.email || "";
     document.getElementById("phone").value = profile.phone || "";
 
-    // Load existing avatar into preview
-    const preview = document.getElementById("profileImagePreview");
-    preview.src = profile.avatar
-        ? `data:image/jpeg;base64,${profile.avatar}`
-        : "images/default-avatar.png";
-
-    // Store original avatar so we don't overwrite it
-    window.originalAvatar = profile.avatar || "";
+    disableEditing();
 }
 
 /* ---------------------------------------------------
-   PROFILE IMAGE PICKER
+   ENABLE / DISABLE EDITING
 --------------------------------------------------- */
-function setupProfileImagePicker() {
-    const picker = document.getElementById("profileImagePicker");
-    const input = document.getElementById("profileImageInput");
+function enableEditing() {
+    document.getElementById("about").disabled = false;
+    document.getElementById("location").disabled = false;
+    document.getElementById("email").disabled = false;
+    document.getElementById("phone").disabled = false;
 
-    if (!picker || !input) return;
+    document.getElementById("editBtn").style.display = "none";
+    document.getElementById("saveBtn").style.display = "block";
+}
 
-    picker.onclick = () => input.click();
+function disableEditing() {
+    document.getElementById("about").disabled = true;
+    document.getElementById("location").disabled = true;
+    document.getElementById("email").disabled = true;
+    document.getElementById("phone").disabled = true;
 
-    input.onchange = () => {
-        if (input.files.length > 0) {
-            const file = input.files[0];
-            const reader = new FileReader();
-            reader.onload = () => {
-                document.getElementById("profileImagePreview").src = reader.result;
-            };
-            reader.readAsDataURL(file);
-        }
+    document.getElementById("editBtn").style.display = "block";
+    document.getElementById("saveBtn").style.display = "none";
+}
+
+/* ---------------------------------------------------
+   AVATAR PICKER
+--------------------------------------------------- */
+function setupAvatarPicker() {
+    const preview = document.getElementById("profilePicPreview");
+    const fileInput = document.getElementById("profilePicFileInput");
+
+    preview.onclick = () => fileInput.click();
+
+    fileInput.onchange = () => {
+        if (fileInput.files.length === 0) return;
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            preview.src = reader.result;
+        };
+
+        reader.readAsDataURL(file);
     };
 }
 
@@ -128,33 +103,96 @@ function setupProfileImagePicker() {
    SAVE PROFILE
 --------------------------------------------------- */
 async function saveProfile() {
-    const bio = document.getElementById("bio").value.trim();
+    showLoader(true);
+
+    const bio = document.getElementById("about").value.trim();
     const location = document.getElementById("location").value.trim();
+    const email = document.getElementById("email").value.trim();
     const phone = document.getElementById("phone").value.trim();
-    const imageInput = document.getElementById("profileImageInput");
 
-    let base64Image = window.originalAvatar; // keep existing avatar
+    const fileInput = document.getElementById("profilePicFileInput");
 
-    // Only update avatar if user selected a new file
-    if (imageInput.files.length > 0) {
-        base64Image = await fileToBase64(imageInput.files[0]);
+    let avatarBase64 = originalAvatar;
+
+    if (fileInput.files.length > 0) {
+        avatarBase64 = await fileToBase64(fileInput.files[0]);
     }
 
-    const result = await api("updateProfile", {
+    // Update profile sheet
+    const res = await api("updateProfile", {
         userId: user.id,
         bio,
         location,
         phone,
-        avatar: base64Image
+        avatar: avatarBase64
     });
 
-    if (result.error) {
-        showMessage("Error", result.error);
+    // Update email if changed
+    if (!res.error && email !== user.email) {
+        await api("updateEmail", { userId: user.id, newEmail: email });
+    }
+
+    showLoader(false);
+
+    if (res.error) {
+        showPopup("Error", res.error);
         return;
     }
 
-    showMessage("Success", "Profile updated successfully.");
+    showPopup("Success", "Profile updated successfully.");
     loadProfile();
+}
+
+/* ---------------------------------------------------
+   DELETE PROFILE
+--------------------------------------------------- */
+function showDeleteConfirm() {
+    document.getElementById("popupBackdrop").style.display = "flex";
+    document.getElementById("deleteConfirmPopup").style.display = "block";
+}
+
+function hideDeleteConfirm() {
+    document.getElementById("popupBackdrop").style.display = "none";
+    document.getElementById("deleteConfirmPopup").style.display = "none";
+}
+
+async function confirmDeleteAccount() {
+    showLoader(true);
+
+    const res = await api("deleteAccount", { userId: user.id });
+
+    showLoader(false);
+
+    if (res.error) {
+        showPopup("Error", res.error);
+        return;
+    }
+
+    localStorage.removeItem("contact_user");
+    window.location.href = "signup.html";
+}
+
+/* ---------------------------------------------------
+   POPUPS
+--------------------------------------------------- */
+function showPopup(title, message) {
+    document.getElementById("popupTitle").textContent = title;
+    document.getElementById("popupMessage").textContent = message;
+
+    document.getElementById("popupBackdrop").style.display = "flex";
+    document.getElementById("mainPopup").style.display = "block";
+}
+
+function hidePopup() {
+    document.getElementById("popupBackdrop").style.display = "none";
+    document.getElementById("mainPopup").style.display = "none";
+}
+
+/* ---------------------------------------------------
+   LOADER
+--------------------------------------------------- */
+function showLoader(show) {
+    document.getElementById("profileLoader").style.display = show ? "flex" : "none";
 }
 
 /* ---------------------------------------------------
@@ -166,18 +204,4 @@ function fileToBase64(file) {
         reader.onload = () => resolve(reader.result.split(",")[1]);
         reader.readAsDataURL(file);
     });
-}
-
-/* ---------------------------------------------------
-   UNIVERSAL POPUP
---------------------------------------------------- */
-function showMessage(title, text) {
-    const backdrop = document.getElementById("messageBackdrop");
-    document.getElementById("messageTitle").textContent = title;
-    document.getElementById("messageText").textContent = text;
-    backdrop.style.display = "flex";
-}
-
-function hideMessagePopup() {
-    document.getElementById("messageBackdrop").style.display = "none";
 }
