@@ -1,116 +1,199 @@
 /* ---------------------------------------------------
-   EVENTS.JS — Load and render events
+   EVENTS.JS — Load, render, create, delete, contact
 --------------------------------------------------- */
 
-document.addEventListener("DOMContentLoaded", async () => {
-    requireAuth();
+requireAuth();
+const user = getCurrentUser();
 
-    const user = getCurrentUser();
-    const container = document.getElementById("eventList");
-    if (!container) return;
+/* ---------------------------------------------------
+   INITIAL LOAD
+--------------------------------------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+    loadEvents();
+    setupImagePicker();
+});
 
-    container.innerHTML = "Loading events...";
+/* ---------------------------------------------------
+   LOAD EVENTS
+--------------------------------------------------- */
+async function loadEvents() {
+    const grid = document.getElementById("eventsGrid");
+    if (!grid) return;
+
+    grid.innerHTML = `<div class="empty-state">Loading events…</div>`;
 
     const result = await api("getEvents");
 
     if (result.error) {
-        container.innerHTML = "Error loading events.";
+        grid.innerHTML = `<div class="empty-state">Error loading events.</div>`;
         return;
     }
 
     const events = result.events || [];
 
-    // Enrich events with creator profile
-    const enriched = await Promise.all(
-        events.map(async (ev) => {
-            const creator = await api("getUser", { userId: ev.creator });
-            return {
-                ...ev,
-                creatorName: creator?.user?.fullName || "Unknown",
-                creatorAvatar: creator?.user?.avatarUrl || ""
-            };
-        })
-    );
-
-    renderEvents(enriched, container, user);
-});
+    renderEvents(events);
+}
 
 /* ---------------------------------------------------
    RENDER EVENT CARDS
 --------------------------------------------------- */
-function renderEvents(list, container, user) {
+function renderEvents(list) {
+    const grid = document.getElementById("eventsGrid");
+
     if (!list.length) {
-        container.innerHTML = `
-            <div class="empty-state">No events available.</div>
-        `;
+        grid.innerHTML = `<div class="empty-state">No events available.</div>`;
         return;
     }
 
-    container.innerHTML = list.map(e => {
-        const img = e.eventPicture || "";
-        const initials = e.creatorName
-            .split(" ")
-            .map(n => n[0])
-            .join("")
-            .toUpperCase();
+    grid.innerHTML = list
+        .map((e) => {
+            const img = e.eventPicture
+                ? `data:image/jpeg;base64,${e.eventPicture}`
+                : "https://via.placeholder.com/300x180?text=No+Image";
 
-        return `
-            <div class="card event-card">
+            return `
+                <div class="card">
 
-                <h3>${e.title}</h3>
+                    <h3>${e.title}</h3>
 
-                <div class="event-image">
-                    ${img
-                        ? `<img src="${img}" alt="Event Image">`
-                        : `<div class="event-image-fallback">No Image</div>`
-                    }
-                </div>
+                    <img class="event-card-image" src="${img}" alt="Event Image">
 
-                <p>${e.description || ""}</p>
+                    <p>${e.description || ""}</p>
 
-                <div class="event-creator">
-                    <div class="avatar">
+                    <p class="muted">Created by ${e.creatorName || "Unknown"}</p>
+
+                    <div class="event-actions">
                         ${
-                            e.creatorAvatar
-                                ? `<img src="${e.creatorAvatar}" alt="Avatar">`
-                                : `<div class="avatar-fallback">${initials}</div>`
+                            e.creatorId === user.id
+                                ? `<button class="delete-btn" onclick="deleteEvent('${e.id}')">Delete</button>`
+                                : `<button class="btn-primary" onclick="contactEventCreator('${e.creatorId}', '${e.creatorName}', '${e.title}')">Contact Me</button>`
                         }
                     </div>
-                    <span>Created by ${e.creatorName}</span>
-                </div>
 
-                <div class="event-actions">
-                    ${
-                        e.creator === user.id
-                            ? `<button class="danger" onclick="deleteEvent('${e.id}')">Delete Event</button>`
-                            : `<button onclick="contactCreator('${e.creator}')">Contact Me</button>`
-                    }
                 </div>
-
-            </div>
-        `;
-    }).join("");
+            `;
+        })
+        .join("");
 }
 
 /* ---------------------------------------------------
-   CONTACT CREATOR
+   CONTACT EVENT CREATOR → private chat
 --------------------------------------------------- */
-function contactCreator(userId) {
-    window.location.href = `messages.html?user=${userId}`;
+function contactEventCreator(creatorId, creatorName, eventTitle) {
+    const profile = {
+        id: creatorId,
+        fullName: creatorName,
+        context: `Event: ${eventTitle}`
+    };
+
+    localStorage.setItem("private_chat_user", JSON.stringify(profile));
+
+    window.location.href = `messages.html?otherId=${encodeURIComponent(creatorId)}`;
+}
+
+/* ---------------------------------------------------
+   OPEN/CLOSE CREATE EVENT POPUP
+--------------------------------------------------- */
+function openCreateEventPopup() {
+    document.getElementById("createEventBackdrop").style.display = "flex";
+}
+
+function closeCreateEventPopup() {
+    document.getElementById("createEventBackdrop").style.display = "none";
+}
+
+/* ---------------------------------------------------
+   IMAGE PICKER
+--------------------------------------------------- */
+function setupImagePicker() {
+    const picker = document.getElementById("eventImagePicker");
+    const input = document.getElementById("eventImageInput");
+
+    if (!picker || !input) return;
+
+    picker.onclick = () => input.click();
+
+    input.onchange = () => {
+        if (input.files.length > 0) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                document.getElementById("eventImagePreview").src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+}
+
+/* ---------------------------------------------------
+   SUBMIT NEW EVENT
+--------------------------------------------------- */
+async function submitEvent() {
+    const title = document.getElementById("eventTitle").value.trim();
+    const description = document.getElementById("eventDescription").value.trim();
+    const imageInput = document.getElementById("eventImageInput");
+
+    if (!title) {
+        showMessage("Missing Title", "Please enter an event title.");
+        return;
+    }
+
+    let base64Image = "";
+    if (imageInput.files.length > 0) {
+        base64Image = await fileToBase64(imageInput.files[0]);
+    }
+
+    const result = await api("createEvent", {
+        userId: user.id,
+        title,
+        description,
+        eventPicture: base64Image
+    });
+
+    if (result.error) {
+        showMessage("Error", result.error);
+        return;
+    }
+
+    closeCreateEventPopup();
+    loadEvents();
 }
 
 /* ---------------------------------------------------
    DELETE EVENT (creator only)
 --------------------------------------------------- */
 async function deleteEvent(eventId) {
-    if (!confirm("Delete this event?")) return;
-
     const result = await api("deleteEvent", { eventId });
 
     if (result.error) {
-        alert(result.error);
+        showMessage("Error", result.error);
         return;
     }
 
-    location.reload();
+    loadEvents();
+}
+
+/* ---------------------------------------------------
+   FILE → BASE64
+--------------------------------------------------- */
+function fileToBase64(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.readAsDataURL(file);
+    });
+}
+
+/* ---------------------------------------------------
+   UNIVERSAL POPUP
+--------------------------------------------------- */
+function showMessage(title, text) {
+    const backdrop = document.getElementById("messageBackdrop");
+    document.getElementById("messageTitle").textContent = title;
+    document.getElementById("messageText").textContent = text;
+    backdrop.style.display = "flex";
+}
+
+function hideMessagePopup() {
+    document.getElementById("messageBackdrop").style.display = "none";
 }
