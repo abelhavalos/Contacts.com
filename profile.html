@@ -1,305 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Contacts.com – Profile</title>
-
-<style>
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Inter", sans-serif; }
-
-    body {
-        background: #f4f6ff;
-        min-height: 100vh;
-    }
-
-    /* NAVBAR */
-    .navbar {
-        width: 100%;
-        padding: 18px 30px;
-        display: flex;
-        align-items: center;
-        background: #ffffff;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        position: sticky;
-        top: 0;
-        z-index: 10;
-    }
-
-    .hamburger {
-        display: none;
-        flex-direction: column;
-        gap: 5px;
-        cursor: pointer;
-        margin-right: 20px;
-    }
-    .hamburger span {
-        width: 28px;
-        height: 3px;
-        background: #222;
-        border-radius: 3px;
-    }
-
-    .logo {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #222;
-    }
-    .logo span { color: #4a6cff; }
-
-    .nav-links {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        margin-left: auto;
-    }
-
-    .nav-links a {
-        text-decoration: none;
-        color: #333;
-        font-weight: 500;
-    }
-
-    /* MOBILE MENU */
-    .mobile-menu {
-        position: absolute;
-        top: 70px;
-        left: 0;
-        width: 220px;
-        background: #4a6cff;
-        padding: 10px 0;
-        display: none;
-        flex-direction: column;
-        z-index: 9999;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    .mobile-menu a {
-        padding: 12px 18px;
-        color: white;
-        text-decoration: none;
-        border-top: 1px solid rgba(255,255,255,0.2);
-    }
-    .mobile-menu.show { display: flex; }
-
-    @media (max-width: 700px) {
-        .hamburger { display: flex; }
-        .nav-links { display: none; }
-    }
-
-    /* LOADER */
-    .profile-loader {
-        position: fixed;
-        inset: 0;
-        background: rgba(255,255,255,0.7);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        flex-direction: column;
-    }
-
-    .spinner {
-        width: 42px;
-        height: 42px;
-        border: 4px solid rgba(0,0,0,0.15);
-        border-top-color: #4a6cff;
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .loading-text {
-        margin-top: 10px;
-        font-size: 14px;
-        color: #4a6cff;
-        font-weight: 600;
-    }
-
-    /* PROFILE HEADER */
-    .profile-header {
-        text-align: center;
-        margin-top: 40px;
-    }
-
-    .profile-avatar {
-        width: 140px;
-        height: 140px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 4px solid #4a6cff;
-        cursor: pointer;
-    }
-
-    .profile-name {
-        font-size: 1.9rem;
-        font-weight: 700;
-        margin-top: 12px;
-        color: #222;
-    }
-
-    .profile-location {
-        font-size: 1rem;
-        color: #666;
-        margin-top: 4px;
-    }
-
-    /* SECTIONS */
-    .section {
-        background: #fff;
-        color: #222;
-        padding: 20px;
-        margin: 20px auto;
-        width: 90%;
-        max-width: 600px;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    }
-
-    .section h2 {
-        margin-bottom: 10px;
-        color: #4a6cff;
-        font-size: 1.2rem;
-    }
-
-    input, textarea {
-        width: 100%;
-        padding: 12px;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-        margin-top: 5px;
-        font-size: 1rem;
-    }
-
-    button {
-        padding: 12px 20px;
-        background: #4a6cff;
-        color: #fff;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        margin-top: 15px;
-        font-weight: 600;
-        width: 100%;
-    }
-
-    .danger-btn {
-        background: #d9534f;
-    }
-
-    /* POPUP */
-    .popup-backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.35);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 999;
-    }
-
-    .popup {
-        background: #fff;
-        border-radius: 16px;
-        padding: 20px 22px;
-        max-width: 320px;
-        width: 90%;
-        box-shadow: 0 18px 45px rgba(0,0,0,0.18);
-        text-align: center;
-    }
-
-    .popup-title {
-        font-weight: 600;
-        margin-bottom: 8px;
-        font-size: 16px;
-    }
-
-    .popup-message {
-        font-size: 14px;
-        color: #444;
-        margin-bottom: 18px;
-    }
-</style>
+  <meta charset="UTF-8" />
+  <title>Contacts.com – Profile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
-
 <body>
+  <!-- Navbar -->
+  <header id="navbar"></header>
 
-<!-- REQUIRED LOADER -->
-<div id="profileLoader" class="profile-loader">
-  <div class="spinner"></div>
-  <div class="loading-text">Loading profile…</div>
-</div>
+  <!-- Mobile menu -->
+  <div id="mobileMenu" class="mobile-menu"></div>
 
-<nav class="navbar" id="navbar"></nav>
-<div class="mobile-menu" id="mobileMenu"></div>
+  <!-- Loader -->
+  <div id="profileLoader" class="loader-backdrop" style="display:none;">
+    <div class="loader-box">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading profile…</div>
+    </div>
+  </div>
 
-<!-- PROFILE HEADER -->
-<div class="profile-header">
-    <img id="profilePicPreview" src="images/default-avatar.png" class="profile-avatar" />
-    <input type="file" id="profilePicFileInput" accept="image/*" style="display:none;" />
+  <!-- Popup backdrop -->
+  <div id="popupBackdrop" class="popup-backdrop" style="display:none;">
+    <!-- Main popup -->
+    <div id="mainPopup" class="popup">
+      <h3 id="popupTitle"></h3>
+      <p id="popupMessage"></p>
+      <button onclick="hidePopup()">OK</button>
+    </div>
 
-    <div class="profile-name" id="fullNameDisplay">Your Name</div>
-    <div class="profile-location" id="locationDisplay">City, State</div>
-</div>
-
-<!-- ABOUT -->
-<div class="section">
-    <h2>About Me</h2>
-    <textarea id="about" rows="5" disabled></textarea>
-</div>
-
-<!-- CITY & STATE -->
-<div class="section">
-    <h2>City & State</h2>
-    <input id="location" disabled />
-</div>
-
-<!-- EMAIL -->
-<div class="section">
-    <h2>Email (Optional)</h2>
-    <input id="email" disabled />
-</div>
-
-<!-- CONTACT NUMBER -->
-<div class="section">
-    <h2>Contact Number (Optional)</h2>
-    <input id="phone" disabled />
-</div>
-
-<!-- ACTION BUTTONS -->
-<div class="section">
-    <button id="editBtn" onclick="enableEditing()">Update Profile</button>
-    <button id="saveBtn" onclick="saveProfile()" style="display:none;">Save Changes</button>
-</div>
-
-<!-- DELETE ACCOUNT -->
-<div class="section">
-    <h2 style="color:#d9534f;">Delete Profile</h2>
-    <p>This action is permanent and cannot be undone.</p>
-    <button class="danger-btn" onclick="showDeleteConfirm()">Delete My Profile</button>
-</div>
-
-<!-- POPUPS -->
-<div id="popupBackdrop" class="popup-backdrop">
+    <!-- Delete confirm popup -->
     <div id="deleteConfirmPopup" class="popup" style="display:none;">
-        <div class="popup-title">Delete Profile</div>
-        <div class="popup-message">Are you sure you want to permanently delete your profile?</div>
-        <button class="danger-btn" onclick="confirmDeleteAccount()">Yes, Delete</button>
+      <h3>Delete account</h3>
+      <p>Are you sure you want to delete your account? This cannot be undone.</p>
+      <div class="popup-actions">
         <button onclick="hideDeleteConfirm()">Cancel</button>
+        <button class="danger" onclick="confirmDeleteAccount()">Delete</button>
+      </div>
     </div>
+  </div>
 
-    <div id="mainPopup" class="popup" style="display:none;">
-        <div id="popupTitle" class="popup-title"></div>
-        <div id="popupMessage" class="popup-message"></div>
-        <button onclick="hidePopup()">OK</button>
-    </div>
-</div>
+  <main class="profile-page">
+    <section class="profile-card">
+      <!-- Avatar -->
+      <div class="avatar-section">
+        <img id="profileAvatar" src="default-avatar.png" alt="Avatar" class="avatar-img" />
+        <input id="avatarFileInput" type="file" accept="image/*" style="display:none;" />
+        <button type="button" id="changeAvatarBtn">Change picture</button>
+      </div>
 
-<!-- SCRIPTS (ORDER MATTERS!) -->
-<!-- SCRIPTS (ORDER MATTERS!) -->
-<script src="scripts/api.js"></script>
-<script src="scripts/navbar.js"></script>
-<script src="scripts/auth.js"></script>
-<script src="scripts/profile.js"></script>
+      <!-- Identity -->
+      <div class="identity-section">
+        <label>
+          Full name
+          <input id="fullNameInput" type="text" disabled />
+        </label>
+
+        <label>
+          Email
+          <input id="emailInput" type="email" disabled />
+        </label>
+
+        <label class="password-field">
+          Password
+          <div class="password-wrapper">
+            <input id="passwordInput" type="password" placeholder="Leave blank to keep current" disabled />
+            <button type="button" id="togglePasswordBtn" class="eye-btn">👁</button>
+          </div>
+        </label>
+      </div>
+
+      <!-- Profile details -->
+      <div class="details-section">
+        <label>
+          Bio
+          <textarea id="bioInput" rows="3" disabled></textarea>
+        </label>
+
+        <label>
+          Location
+          <input id="locationInput" type="text" disabled />
+        </label>
+
+        <label>
+          Phone
+          <input id="phoneInput" type="tel" disabled />
+        </label>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions-section">
+        <button id="editBtn" type="button" onclick="enableEditing()">Edit</button>
+        <button id="saveBtn" type="button" style="display:none;" onclick="saveProfile()">Save</button>
+        <button id="cancelBtn" type="button" style="display:none;" onclick="cancelEditing()">Cancel</button>
+        <button id="deleteAccountBtn" type="button" class="danger" onclick="showDeleteConfirm()">Delete account</button>
+        <button id="logoutBtn" type="button" onclick="logout()">Logout</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="api.js"></script>
+  <script src="profile.js"></script>
 </body>
 </html>
