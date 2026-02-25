@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     container.innerHTML = "Loading contacts...";
 
+    // Fetch contacts for this user
     const result = await api("getContacts", { userId: user.id });
 
     if (result.error) {
@@ -18,7 +19,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
-    renderContacts(result.contacts || [], container);
+    const contacts = result.contacts || [];
+
+    // Remove yourself from the list
+    const filtered = contacts.filter(c => c.contactId !== user.id);
+
+    renderContacts(filtered, container);
 });
 
 /* ---------------------------------------------------
@@ -32,11 +38,42 @@ function renderContacts(list, container) {
         return;
     }
 
-    container.innerHTML = list.map(c => `
-        <div class="card">
-            <h3>${c.contactId}</h3>
-            <p>Contact ID: ${c.contactId}</p>
-            <p>Added: ${c.createdAt || ""}</p>
-        </div>
-    `).join("");
+    container.innerHTML = list.map(c => {
+        const avatar = c.avatarUrl || "";
+        const initials = c.fullName
+            ? c.fullName.split(" ").map(n => n[0]).join("").toUpperCase()
+            : "?";
+
+        return `
+            <div class="card contact-card">
+
+                <div class="avatar">
+                    ${avatar
+                        ? `<img src="${avatar}" alt="Avatar">`
+                        : `<div class="avatar-fallback">${initials}</div>`
+                    }
+                </div>
+
+                <h3>${c.fullName || "Unknown"}</h3>
+                <p>${c.email || ""}</p>
+
+                <div class="contact-actions">
+                    <button onclick="viewProfile('${c.contactId}')">View Profile</button>
+                    <button onclick="messageUser('${c.contactId}')">Message</button>
+                </div>
+
+            </div>
+        `;
+    }).join("");
+}
+
+/* ---------------------------------------------------
+   ACTION BUTTONS
+--------------------------------------------------- */
+function viewProfile(id) {
+    window.location.href = `profile.html?userId=${id}`;
+}
+
+function messageUser(id) {
+    window.location.href = `messages.html?user=${id}`;
 }
