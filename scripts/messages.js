@@ -1,5 +1,5 @@
 /* ---------------------------------------------------
-   MESSAGES.JS — Private + Community chat
+   MESSAGES.JS — Conversation-based chat
 --------------------------------------------------- */
 
 requireAuth();
@@ -8,15 +8,17 @@ const currentUser = getCurrentUser();
 let chatMode = null;          // "private" | "community"
 let otherId = null;           // for private chat
 let communityId = null;       // for community chat
+let conversationId = null;
 let pollTimer = null;
 
 /* ---------------------------------------------------
    INIT
 --------------------------------------------------- */
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     detectChatMode();
     setupUI();
-    loadInitialData();
+    await resolveConversation();
+    await loadInitialData();
     startPolling();
 });
 
@@ -32,9 +34,33 @@ function detectChatMode() {
         return;
     }
 
-    // private chat by otherId / user / otherEmail (flexible)
     otherId = params.get("otherId") || params.get("user") || null;
     chatMode = "private";
+}
+
+/* ---------------------------------------------------
+   RESOLVE CONVERSATION (get or create)
+--------------------------------------------------- */
+async function resolveConversation() {
+    if (chatMode === "private") {
+        if (!otherId) return;
+        const res = await api("getOrCreateDMConversation", {
+            userA: currentUser.id,
+            userB: otherId
+        });
+        if (!res.error && res.conversationId) {
+            conversationId = res.conversationId;
+        }
+    } else if (chatMode === "community") {
+        if (!communityId) return;
+        const res = await api("getOrCreateCommunityConversation", {
+            communityId,
+            userId: currentUser.id
+        });
+        if (!res.error && res.conversationId) {
+            conversationId = res.conversationId;
+        }
+    }
 }
 
 /* ---------------------------------------------------
@@ -72,12 +98,15 @@ function setupUI() {
    INITIAL DATA LOAD
 --------------------------------------------------- */
 async function loadInitialData() {
+    if (!conversationId) return;
+
     if (chatMode === "private") {
         await loadPrivateHeader();
     } else if (chatMode === "community") {
         await loadCommunityHeader();
-        await loadCommunityMembers();
+        await loadConversationMembers();
     }
+
     await loadMessages();
 }
 
@@ -88,7 +117,6 @@ async function loadPrivateHeader() {
     const headerTitle = document.getElementById("headerTitle");
     if (!headerTitle) return;
 
-    // Try localStorage first
     const stored = localStorage.getItem("private_chat_user");
     if (stored) {
         try {
@@ -98,15 +126,6 @@ async function loadPrivateHeader() {
                 return;
             }
         } catch (e) {}
-    }
-
-    // Fallback: fetch from backend if we have otherId
-    if (otherId) {
-        const res = await api("getUser", { userId: otherId });
-        if (!res.error && res.user) {
-            headerTitle.textContent = res.user.fullName || "Chat";
-            return;
-        }
     }
 
     headerTitle.textContent = "Chat";
@@ -125,15 +144,15 @@ async function loadCommunityHeader() {
 }
 
 /* ---------------------------------------------------
-   COMMUNITY MEMBERS
+   MEMBERS (for community)
 --------------------------------------------------- */
-async function loadCommunityMembers() {
+async function loadConversationMembers() {
     const sidebar = document.getElementById("memberSidebar");
-    if (!sidebar || !communityId) return;
+    if (!sidebar || !conversationId) return;
 
     sidebar.innerHTML = "Loading members…";
 
-    const res = await api("getCommunityMembers", { communityId });
+    const res = await api("getConversationMembers", { conversationId });
     if (res.error) {
         sidebar.innerHTML = "Error loading members.";
         return;
@@ -168,25 +187,9 @@ async function loadCommunityMembers() {
 --------------------------------------------------- */
 async function loadMessages() {
     const listEl = document.getElementById("messageList");
-    if (!listEl) return;
+    if (!listEl || !conversationId) return;
 
-    let res;
-    if (chatMode === "private") {
-        if (!otherId) return;
-        res = await api("getMessages", {
-            mode: "private",
-            userId: currentUser.id,
-            otherId
-        });
-    } else if (chatMode === "community") {
-        if (!communityId) return;
-        res = await api("getMessages", {
-            mode: "community",
-            communityId
-        });
-    } else {
-        return;
-    }
+    const res = await api("getMessages", { conversationId });
 
     if (res.error) {
         listEl.innerHTML = "<div class='empty-state'>Error loading messages.</div>";
@@ -195,7 +198,7 @@ async function loadMessages() {
 
     const messages = (res.messages || []).map((m) => ({
         ...m,
-        text: safeDecrypt(m.text),
+        text: m.text || "",
         isMine: m.senderId === currentUser.id
     }));
 
@@ -217,8 +220,8 @@ function renderMessages(messages) {
     listEl.innerHTML = messages
         .map((m) => {
             const cls = m.isMine ? "message mine" : "message theirs";
-            const name = m.senderName || (m.isMine ? "You" : "User");
-            const time = formatTime(m.createdAt);
+            const name = m.isMine ? "You" : (m.senderName || "User");
+            const time = formatTime(m.timestamp);
 
             return `
                 <div class="${cls}">
@@ -239,52 +242,35 @@ function renderMessages(messages) {
    SEND MESSAGE
 --------------------------------------------------- */
 async function sendMessage() {
+    if (!conversationId) return;
+
     const input = document.getElementById("messageInput");
     if (!input) return;
 
     const raw = input.value.trim();
     if (!raw) return;
 
-    const encrypted = safeEncrypt(raw);
-
     // optimistic UI
     const tempMessage = {
         senderId: currentUser.id,
         senderName: currentUser.fullName,
         text: raw,
-        createdAt: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
         isMine: true
     };
 
     appendMessage(tempMessage);
     input.value = "";
 
-    let res;
-    if (chatMode === "private") {
-        if (!otherId) return;
-        res = await api("sendMessage", {
-            mode: "private",
-            senderId: currentUser.id,
-            otherId,
-            text: encrypted
-        });
-    } else if (chatMode === "community") {
-        if (!communityId) return;
-        res = await api("sendMessage", {
-            mode: "community",
-            senderId: currentUser.id,
-            communityId,
-            text: encrypted
-        });
-    } else {
-        return;
-    }
+    const res = await api("sendMessage", {
+        conversationId,
+        senderId: currentUser.id,
+        text: raw
+    });
 
     if (res && res.error) {
-        // simple error handling; you can improve with popup
         console.error("Error sending message:", res.error);
     } else {
-        // reload to sync with server (ids, timestamps, etc.)
         loadMessages();
     }
 }
@@ -297,8 +283,8 @@ function appendMessage(m) {
     if (!listEl) return;
 
     const cls = m.isMine ? "message mine" : "message theirs";
-    const name = m.senderName || (m.isMine ? "You" : "User");
-    const time = formatTime(m.createdAt);
+    const name = m.isMine ? "You" : (m.senderName || "User");
+    const time = formatTime(m.timestamp);
 
     const html = `
         <div class="${cls}">
@@ -319,7 +305,7 @@ function appendMessage(m) {
 --------------------------------------------------- */
 function startPolling() {
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(loadMessages, 5000); // 5s
+    pollTimer = setInterval(loadMessages, 5000);
 }
 
 /* ---------------------------------------------------
@@ -346,27 +332,13 @@ function escapeHtml(str) {
 }
 
 /* ---------------------------------------------------
-   ENCRYPT / DECRYPT WRAPPERS
-   (use your existing Contact.com helpers)
+   FRONTEND ENCRYPT/DECRYPT STUBS
+   (backend already encrypts/decrypts)
 --------------------------------------------------- */
-function safeEncrypt(text) {
-    try {
-        if (typeof encrypt === "function") {
-            return encrypt(text);
-        }
-    } catch (e) {
-        console.error("encrypt() failed:", e);
-    }
+function encrypt(text) {
     return text;
 }
 
-function safeDecrypt(text) {
-    try {
-        if (typeof decrypt === "function") {
-            return decrypt(text);
-        }
-    } catch (e) {
-        console.error("decrypt() failed:", e);
-    }
+function decrypt(text) {
     return text;
 }
