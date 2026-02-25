@@ -1,100 +1,156 @@
 /* ---------------------------------------------------
-   COMMUNITIES.JS — Load and render communities
+   COMMUNITIES.JS — Load, render, create, join
 --------------------------------------------------- */
 
-document.addEventListener("DOMContentLoaded", async () => {
-    requireAuth();
+requireAuth();
+const user = getCurrentUser();
 
-    const user = getCurrentUser();
-    const container = document.getElementById("communityList");
-    if (!container) return;
+/* ---------------------------------------------------
+   INITIAL LOAD
+--------------------------------------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+    loadCommunities();
+});
 
-    container.innerHTML = "Loading communities...";
+/* ---------------------------------------------------
+   LOAD COMMUNITIES
+--------------------------------------------------- */
+async function loadCommunities() {
+    const grid = document.getElementById("communityGrid");
+    if (!grid) return;
 
-    // Fetch all communities
+    grid.innerHTML = `<div class="empty-state">Loading communities…</div>`;
+
     const result = await api("getCommunities");
 
     if (result.error) {
-        container.innerHTML = "Error loading communities.";
+        grid.innerHTML = `<div class="empty-state">Error loading communities.</div>`;
         return;
     }
 
     const communities = result.communities || [];
 
-    // Fetch membership for each community
-    const enriched = await Promise.all(
-        communities.map(async (c) => {
-            const members = await api("getCommunityMembers", { communityId: c.id });
-
-            return {
-                ...c,
-                members: members.members || [],
-                isMember: members.members?.some(m => m.userId === user.id)
-            };
-        })
-    );
-
-    renderCommunities(enriched, container, user);
-});
+    // Render
+    renderCommunities(communities);
+}
 
 /* ---------------------------------------------------
    RENDER COMMUNITY CARDS
 --------------------------------------------------- */
-function renderCommunities(list, container, user) {
+function renderCommunities(list) {
+    const grid = document.getElementById("communityGrid");
+
     if (!list.length) {
-        container.innerHTML = `
-            <div class="empty-state">No communities yet.</div>
-        `;
+        grid.innerHTML = `<div class="empty-state">No communities yet.</div>`;
         return;
     }
 
-    container.innerHTML = list.map(c => {
-        const memberCount = c.members.length;
+    grid.innerHTML = list
+        .map((c) => {
+            return `
+                <div class="card">
+                    <img src="${c.image || 'https://via.placeholder.com/300x180?text=Community'}"
+                         class="community-card-image">
 
-        return `
-            <div class="card community-card">
+                    <h3>${c.name}</h3>
+                    <p>${c.description || ""}</p>
 
-                <h3>${c.name}</h3>
-                <p>${c.description || ""}</p>
-
-                <p class="muted">${memberCount} member${memberCount === 1 ? "" : "s"}</p>
-
-                <div class="community-actions">
-                    ${
-                        c.isMember
-                            ? `<button class="secondary" onclick="enterCommunity('${c.id}')">Enter</button>`
-                            : `<button onclick="joinCommunity('${c.id}')">Join</button>`
-                    }
+                    <button class="btn-primary" onclick="openCommunity('${c.id}')">
+                        Open
+                    </button>
                 </div>
-
-            </div>
-        `;
-    }).join("");
+            `;
+        })
+        .join("");
 }
 
 /* ---------------------------------------------------
-   JOIN COMMUNITY
+   OPEN COMMUNITY → messages.html
 --------------------------------------------------- */
-async function joinCommunity(communityId) {
-    const user = getCurrentUser();
+function openCommunity(communityId) {
+    window.location.href = `messages.html?community=${communityId}`;
+}
 
-    const result = await api("joinCommunity", {
+/* ---------------------------------------------------
+   CREATE COMMUNITY POPUP
+--------------------------------------------------- */
+function openCreateCommunityPopup() {
+    document.getElementById("createCommunityBackdrop").style.display = "flex";
+}
+
+function closeCreateCommunityPopup() {
+    document.getElementById("createCommunityBackdrop").style.display = "none";
+}
+
+/* ---------------------------------------------------
+   SUBMIT NEW COMMUNITY
+--------------------------------------------------- */
+async function submitCommunity() {
+    const title = document.getElementById("communityTitle").value.trim();
+    const description = document.getElementById("communityDescription").value.trim();
+    const imageInput = document.getElementById("communityImageInput");
+
+    if (!title) {
+        showMessage("Missing Name", "Please enter a community name.");
+        return;
+    }
+
+    let base64Image = "";
+    if (imageInput.files.length > 0) {
+        base64Image = await fileToBase64(imageInput.files[0]);
+    }
+
+    const result = await api("createCommunity", {
         userId: user.id,
-        communityId
+        name: title,
+        description,
+        image: base64Image
     });
 
     if (result.error) {
-        alert(result.error);
+        showMessage("Error", result.error);
         return;
     }
 
-    // Reload page to update membership state
-    location.reload();
+    closeCreateCommunityPopup();
+    loadCommunities();
 }
 
 /* ---------------------------------------------------
-   ENTER COMMUNITY CHAT
+   DELETE COMMUNITY (Admin Only)
 --------------------------------------------------- */
-function enterCommunity(communityId) {
-    window.location.href = `messages.html?community=${communityId}`;
+async function deleteCommunity(id) {
+    const result = await api("deleteCommunity", { communityId: id });
+
+    if (result.error) {
+        showMessage("Error", result.error);
+        return;
+    }
+
+    loadCommunities();
+}
+
+/* ---------------------------------------------------
+   IMAGE PICKER → BASE64
+--------------------------------------------------- */
+function fileToBase64(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.readAsDataURL(file);
+    });
+}
+
+/* ---------------------------------------------------
+   UNIVERSAL POPUP
+--------------------------------------------------- */
+function showMessage(title, text) {
+    const backdrop = document.getElementById("messageBackdrop");
+    document.getElementById("messageTitle").textContent = title;
+    document.getElementById("messageText").textContent = text;
+    backdrop.style.display = "flex";
+}
+
+function hideMessagePopup() {
+    document.getElementById("messageBackdrop").style.display = "none";
 }
