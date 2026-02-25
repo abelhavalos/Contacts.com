@@ -1,79 +1,144 @@
 /* ---------------------------------------------------
-   CONTACTS.JS — Load and render contacts
+   CONTACTS.JS — Load, search, render contacts
 --------------------------------------------------- */
 
-document.addEventListener("DOMContentLoaded", async () => {
-    requireAuth();
+requireAuth();
+const user = getCurrentUser();
 
-    const user = getCurrentUser();
-    const container = document.getElementById("contactsList");
-    if (!container) return;
+/* ---------------------------------------------------
+   INITIAL LOAD
+--------------------------------------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+    loadContacts();
+    setupSearch();
+});
 
-    container.innerHTML = "Loading contacts...";
+/* ---------------------------------------------------
+   LOAD CONTACTS
+--------------------------------------------------- */
+async function loadContacts() {
+    const container = document.getElementById("contactsContainer");
+    const emptyState = document.getElementById("emptyState");
+    const loader = document.getElementById("contactsLoader");
 
-    // Fetch contacts for this user
+    if (loader) loader.style.display = "flex";
+
     const result = await api("getContacts", { userId: user.id });
 
+    if (loader) loader.style.display = "none";
+
     if (result.error) {
-        container.innerHTML = "Error loading contacts.";
+        container.innerHTML = `<div class="empty-state">Error loading contacts.</div>`;
         return;
     }
 
-    const contacts = result.contacts || [];
+    let contacts = result.contacts || [];
 
-    // Remove yourself from the list
-    const filtered = contacts.filter(c => c.contactId !== user.id);
+    // Remove yourself
+    contacts = contacts.filter(c => c.contactId !== user.id);
 
-    renderContacts(filtered, container);
-});
+    renderContacts(contacts);
+
+    emptyState.style.display = contacts.length ? "none" : "block";
+}
+
+/* ---------------------------------------------------
+   SEARCH CONTACTS
+--------------------------------------------------- */
+function setupSearch() {
+    const input = document.getElementById("searchInput");
+    if (!input) return;
+
+    input.addEventListener("input", async () => {
+        const query = input.value.trim();
+
+        if (!query) {
+            loadContacts();
+            return;
+        }
+
+        const result = await api("searchContacts", {
+            userId: user.id,
+            query
+        });
+
+        if (result.error) return;
+
+        const contacts = result.contacts || [];
+        renderContacts(contacts);
+
+        document.getElementById("emptyState").style.display =
+            contacts.length ? "none" : "block";
+    });
+}
 
 /* ---------------------------------------------------
    RENDER CONTACT CARDS
 --------------------------------------------------- */
-function renderContacts(list, container) {
+function renderContacts(list) {
+    const container = document.getElementById("contactsContainer");
+
     if (!list.length) {
-        container.innerHTML = `
-            <div class="empty-state">You have no contacts yet.</div>
-        `;
+        container.innerHTML = "";
         return;
     }
 
-    container.innerHTML = list.map(c => {
-        const avatar = c.avatarUrl || "";
-        const initials = c.fullName
-            ? c.fullName.split(" ").map(n => n[0]).join("").toUpperCase()
-            : "?";
+    container.innerHTML = list
+        .map((c) => {
+            const avatar = c.avatarUrl;
+            const initials = c.fullName
+                ? c.fullName.split(" ").map(n => n[0]).join("").toUpperCase()
+                : "?";
 
-        return `
-            <div class="card contact-card">
+            return `
+                <div class="contact-card">
 
-                <div class="avatar">
-                    ${avatar
-                        ? `<img src="${avatar}" alt="Avatar">`
-                        : `<div class="avatar-fallback">${initials}</div>`
+                    ${
+                        avatar
+                            ? `<img class="contact-avatar-img" src="${avatar}" alt="Avatar">`
+                            : `<div class="contact-avatar">${initials}</div>`
                     }
+
+                    <div class="contact-info">
+                        <div class="contact-name">${c.fullName || "Unknown"}</div>
+                        <div class="contact-email">${c.email || ""}</div>
+                    </div>
+
+                    <div class="contact-actions">
+                        <button class="contact-btn secondary" onclick="viewProfile('${c.contactId}')">
+                            View Profile
+                        </button>
+                        <button class="contact-btn" onclick="messageUser('${c.contactId}', '${c.fullName}', '${c.email}', '${avatar || ""}')">
+                            Message
+                        </button>
+                    </div>
+
                 </div>
-
-                <h3>${c.fullName || "Unknown"}</h3>
-                <p>${c.email || ""}</p>
-
-                <div class="contact-actions">
-                    <button onclick="viewProfile('${c.contactId}')">View Profile</button>
-                    <button onclick="messageUser('${c.contactId}')">Message</button>
-                </div>
-
-            </div>
-        `;
-    }).join("");
+            `;
+        })
+        .join("");
 }
 
 /* ---------------------------------------------------
    ACTION BUTTONS
 --------------------------------------------------- */
 function viewProfile(id) {
-    window.location.href = `profile.html?userId=${id}`;
+    window.location.href = `public-profile.html?email=${encodeURIComponent(id)}`;
 }
 
-function messageUser(id) {
-    window.location.href = `messages.html?user=${id}`;
+/* 
+   When messaging a user, we save their profile to localStorage
+   so messages.html can load the correct chat.
+*/
+function messageUser(contactId, fullName, email, avatarUrl) {
+    const profile = {
+        email,
+        fullName,
+        avatarUrl,
+        id: contactId
+    };
+
+    localStorage.setItem("private_chat_user", JSON.stringify(profile));
+
+    window.location.href = `messages.html?otherEmail=${encodeURIComponent(email)}`;
 }
