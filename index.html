@@ -3,119 +3,107 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Contacts.com</title>
-
-  <style>
-    body {
-      margin: 0;
-      font-family: system-ui, sans-serif;
-      background: #f7f7f9;
-      color: #333;
-    }
-
-    /* HEADER */
-    header {
-      background: #ffffff;
-      border-bottom: 1px solid #e5e5e5;
-      padding: 16px 32px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .logo {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: #2b2b2b;
-      letter-spacing: -0.5px;
-    }
-
-    .header-actions a {
-      text-decoration: none;
-      padding: 10px 18px;
-      background: #007bff;
-      color: white;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      transition: background 0.2s;
-    }
-
-    .header-actions a:hover {
-      background: #0069d9;
-    }
-
-    /* HERO */
-    .hero {
-      text-align: center;
-      padding: 80px 20px;
-      max-width: 700px;
-      margin: 0 auto;
-    }
-
-    .hero h1 {
-      font-size: 2.8rem;
-      margin-bottom: 16px;
-      font-weight: 700;
-      color: #222;
-    }
-
-    .hero p {
-      font-size: 1.2rem;
-      color: #555;
-      margin-bottom: 32px;
-    }
-
-    .cta-btn {
-      padding: 14px 28px;
-      background: #007bff;
-      color: white;
-      border-radius: 8px;
-      font-size: 1.1rem;
-      text-decoration: none;
-      display: inline-block;
-      transition: background 0.2s;
-    }
-
-    .cta-btn:hover {
-      background: #0069d9;
-    }
-
-    /* FOOTER */
-    footer {
-      text-align: center;
-      padding: 40px 20px;
-      color: #777;
-      font-size: 0.9rem;
-      margin-top: 80px;
-    }
-  </style>
+  <title>Contacts.com – Connect Better</title>
+  <link rel="stylesheet" href="styles/style.css" />
 </head>
-
 <body>
 
-  <!-- HEADER -->
-  <header>
-    <div class="logo">Contacts.com</div>
-    <div class="header-actions">
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="hamburger" onclick="toggleMenu()">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+    <div class="logo">Contacts<span>.</span>com</div>
+
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="communities.html">Communities</a>
+      <a href="events.html">Events</a>
       <a href="login.html">Login</a>
+      <button class="btn-primary" onclick="window.location.href='signup.html'">Sign Up</button>
+    </div>
+  </nav>
+
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="index.html">Home</a>
+    <a href="communities.html">Communities</a>
+    <a href="events.html">Events</a>
+    <a href="login.html">Login</a>
+    <button class="btn-primary" onclick="window.location.href='signup.html'">Sign Up</button>
+  </div>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero-content">
+      <h1>Connect with the People Who Matter</h1>
+      <p>A clean, modern social platform built for real conversations — not noise.</p>
+
+      <div class="hero-buttons">
+        <button class="btn-primary" onclick="window.location.href='signup.html'">Get Started</button>
+        <button class="btn-secondary" onclick="window.location.href='learnmore.html'">Learn More</button>
+      </div>
     </div>
   </header>
 
-  <!-- HERO -->
-  <section class="hero">
-    <h1>Connect. Share. Organize.</h1>
-    <p>Your people, communities, events, and conversations — all in one place.</p>
+  <!-- FEATURES -->
+  <section class="features">
+    <div class="feature">
+      <img src="images/Communities.jpeg" alt="Communities" class="feature-img" />
+      <h3>Communities</h3>
+      <p>Join groups that matter to you and stay connected effortlessly.</p>
+    </div>
 
-    <a href="login.html" class="cta-btn">Get Started</a>
+    <div class="feature">
+      <img src="images/Events.jpeg" alt="Events" class="feature-img" />
+      <h3>Events</h3>
+      <p>Create, join, and manage events with ease — online or in person.</p>
+    </div>
+
+    <div class="feature">
+      <img src="images/contacts.jpeg" alt="Contacts" class="feature-img" />
+      <h3>Contacts</h3>
+      <p>Keep your important connections organized and accessible.</p>
+    </div>
+
+    <div class="feature">
+      <img src="images/Profile.jpeg" alt="Profile" class="feature-img" />
+      <h3>Your Profile</h3>
+      <p>Control your identity and personalize your presence on the platform.</p>
+    </div>
   </section>
 
   <!-- FOOTER -->
-  <footer>
-    © 2026 Contacts.com — Built for real connections.
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="logo-main">Contacts</span><span class="logo-dot">.</span><span class="logo-sub">com</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="learnmore.html">Learn more</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+      </div>
+
+      <p class="footer-note">Connect better. No noise, just people.</p>
+    </div>
   </footer>
+
+  <script src="scripts/app.js"></script>
+  <script>
+    function toggleMenu() {
+      document.querySelector(".nav-links").classList.toggle("show");
+      document.getElementById("mobileMenu").classList.toggle("show");
+    }
+
+    function logout() {
+      localStorage.removeItem("contact_user");
+      window.location.href = "index.html";
+    }
+  </script>
 
 </body>
 </html>
