@@ -1,125 +1,71 @@
-/* ---------------------------------------------------
-   AUTH.JS — Signup, Login, Session (Contacts.com)
---------------------------------------------------- */
+// ===============================
+// AUTH HELPERS
+// ===============================
 
-/* 
-   IMPORTANT:
-   Your new login.html and signup.html do NOT use <form> tags.
-   They use buttons with onclick="loginUser()" and onclick="signupUser()".
-   So we remove all form listeners and expose two functions instead.
-*/
-
-/* ---------------------------------------------------
-   SIGNUP
---------------------------------------------------- */
-async function signupUser() {
-    const fullName = document.getElementById("fullName").value.trim();
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value.trim();
-
-    if (!fullName || !email || !password) {
-        showPopup("Missing Fields", "Please fill out all fields.");
-        return;
-    }
-
-    // Show loader
-    const loader = document.getElementById("signupLoader");
-    if (loader) loader.style.display = "flex";
-
-    const result = await api("signup", { fullName, email, password });
-
-    if (loader) loader.style.display = "none";
-
-    if (result.error) {
-        showPopup("Signup Failed", result.error);
-        return;
-    }
-
-    saveUserSession(result.user);
-    window.location.href = "dashboard.html";
-}
-
-/* ---------------------------------------------------
-   LOGIN
---------------------------------------------------- */
-async function loginUser() {
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value.trim();
-
-    if (!email || !password) {
-        showPopup("Missing Fields", "Please enter your email and password.");
-        return;
-    }
-
-    // Show loader
-    const loader = document.getElementById("loginLoader");
-    if (loader) loader.style.display = "flex";
-
-    const result = await api("login", { email, password });
-
-    if (loader) loader.style.display = "none";
-
-    if (result.error) {
-        showPopup("Login Failed", result.error);
-        return;
-    }
-
-    saveUserSession(result.user);
-    window.location.href = "dashboard.html";
-}
-
-/* ---------------------------------------------------
-   SESSION HELPERS
---------------------------------------------------- */
+// Save user session
 function saveUserSession(user) {
-    localStorage.setItem("contact_user", JSON.stringify(user));
+  localStorage.setItem("user", JSON.stringify(user));
 }
 
-function getCurrentUser() {
-    const raw = localStorage.getItem("contact_user");
-    if (!raw) return null;
-
-    try {
-        return JSON.parse(raw);
-    } catch {
-        return null;
-    }
+// Load user session
+function getUserSession() {
+  const raw = localStorage.getItem("user");
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
-function requireAuth() {
-    const user = getCurrentUser();
-    if (!user) {
-        window.location.href = "login.html";
-    }
-}
-
-/* ---------------------------------------------------
-   LOGOUT
---------------------------------------------------- */
+// Logout
 function logout() {
-    localStorage.removeItem("contact_user");
-    window.location.href = "login.html";
+  localStorage.removeItem("user");
+  window.location.href = "login.html";
 }
 
-/* ---------------------------------------------------
-   POPUP HELPERS (used by login/signup)
---------------------------------------------------- */
-function showPopup(title, message) {
-    const backdrop = document.getElementById("popupBackdrop");
-    const titleEl = document.getElementById("popupTitle");
-    const msgEl = document.getElementById("popupMessage");
+// ===============================
+// SIGNUP
+// ===============================
+async function handleSignup(e) {
+  e.preventDefault();
 
-    if (!backdrop) {
-        alert(message);
-        return;
-    }
+  const fullName = document.getElementById("fullName").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
 
-    titleEl.textContent = title;
-    msgEl.textContent = message;
-    backdrop.style.display = "flex";
+  try {
+    const res = await api("signup", {
+      fullName,
+      email,
+      password,
+      avatarUrl: ""
+    });
+
+    saveUserSession(res.user);
+    window.location.href = "dashboard.html";
+
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
-function hidePopup() {
-    const backdrop = document.getElementById("popupBackdrop");
-    if (backdrop) backdrop.style.display = "none";
+// ===============================
+// LOGIN
+// ===============================
+async function handleLogin(e) {
+  e.preventDefault();
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  try {
+    const res = await api("login", { email, password });
+
+    saveUserSession(res.user);
+    window.location.href = "dashboard.html";
+
+  } catch (err) {
+    alert(err.message);
+  }
 }
