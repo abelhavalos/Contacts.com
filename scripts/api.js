@@ -3,7 +3,7 @@
 // ===============================
 
 // TODO: replace with your deployed GAS Web App URL
-const GAS_URL = "https://script.google.com/macros/s/YOUR_DEPLOYED_ID/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzVbE9nbp_ly3IeGe7gs4BN39sCZ09E8LKbACU9kqYWGfzhv8PFJEDwASBsVU0wp9ZCfw/exec";
 
 // ===============================
 // CORE API WRAPPER
