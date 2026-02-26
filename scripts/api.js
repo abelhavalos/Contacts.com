@@ -1,34 +1,49 @@
-/* ---------------------------------------------------
-   GLOBAL API URL + WRAPPER
---------------------------------------------------- */
+// ===============================
+// CONFIG
+// ===============================
 
-/*const API_URL = "https://script.google.com/macros/s/AKfycbzVbE9nbp_ly3IeGe7gs4BN39sCZ09E8LKbACU9kqYWGfzhv8PFJEDwASBsVU0wp9ZCfw/exec";*/
+// TODO: replace with your deployed GAS Web App URL
+const GAS_URL = "https://script.google.com/macros/s/YOUR_DEPLOYED_ID/exec";
 
-/* ---------------------------------------------------
-   API CALL WRAPPER
---------------------------------------------------- */
-/*async function api(action, params = {}) {
-    const query = new URLSearchParams({ action, ...params }).toString();
-    const url = `${API_URL}?${query}`;
-
-    const res = await fetch(url);
-    return res.json();
-}*/
-
-// Replace with your deployed Apps Script Web App URL
-const API_URL = "https://script.google.com/macros/s/AKfycbzVbE9nbp_ly3IeGe7gs4BN39sCZ09E8LKbACU9kqYWGfzhv8PFJEDwASBsVU0wp9ZCfw/exec";
-
+// ===============================
+// CORE API WRAPPER
+// ===============================
 async function api(module, data = {}) {
-  const payload = { module, ...data };
+  const payload = {
+    module,
+    ...data
+  };
 
-  const res = await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) {
-    throw new Error("Network error");
+  let res;
+  try {
+    res = await fetch(GAS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.error("Network error:", err);
+    throw new Error("Network error. Please try again.");
   }
 
-  return res.json();
+  if (!res.ok) {
+    console.error("HTTP error:", res.status, res.statusText);
+    throw new Error("Server error. Please try again.");
+  }
+
+  let json;
+  try {
+    json = await res.json();
+  } catch (err) {
+    console.error("Invalid JSON:", err);
+    throw new Error("Invalid server response.");
+  }
+
+  if (!json.success) {
+    throw new Error(json.message || "Unknown error");
+  }
+
+  return json;
 }
