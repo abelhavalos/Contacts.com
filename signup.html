@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sign Up – Contacts.com</title>
+    <link rel="stylesheet" href="styles/global.css">
+    <link rel="stylesheet" href="styles/navbar.css">
+    <link rel="stylesheet" href="styles/forms.css">
+    <link rel="stylesheet" href="styles/pages.css">
+</head>
+<body>
+
+<div id="navbar"></div>
+<div id="mobileMenu" class="mobile-menu"></div>
+
+<div class="form-container">
+    <h2>Create Account</h2>
+
+    <form id="signupForm">
+        <input type="text" id="fullName" placeholder="Full Name" required>
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Password" required>
+
+        <button type="submit" class="btn-primary">Sign Up</button>
+    </form>
+
+    <p>Already have an account? <a href="login.html">Login</a></p>
+</div>
+
+<!-- Load scripts in correct order -->
+<script src="scripts/navbar.js"></script>
+<script src="scripts/api.js"></script>
+<script src="scripts/auth.js"></script>
+
+</body>
+</html>
